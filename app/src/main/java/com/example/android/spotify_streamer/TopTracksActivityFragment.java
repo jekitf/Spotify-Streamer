@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.os.AsyncTask;
+import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
@@ -67,6 +68,12 @@ public class TopTracksActivityFragment extends Fragment {
     {
         public TrackAdapter(Context context) {
             super(context, 0, new ArrayList<TrackAdapterItem>());
+
+            // populate data from last trackAdapter
+            if (trackAdapter!=null) {
+                for (int i = 0; i < trackAdapter.getCount(); i++)
+                    add(trackAdapter.getItem(i));
+            }
         }
 
         @Override
@@ -89,11 +96,24 @@ public class TopTracksActivityFragment extends Fragment {
             return convertView;
         }
     }
-    TrackAdapter trackAdapter;
+
+    //to store/retrieve view data when going back
+    static Parcelable state;
+
+    //used static so when hitting back, old data will be cached
+    static TrackAdapter trackAdapter;
 
     public TopTracksActivityFragment() {
     }
 
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        state=listView.onSaveInstanceState();
+    }
+
+    ListView listView;
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
@@ -112,8 +132,11 @@ public class TopTracksActivityFragment extends Fragment {
             new SearchTopTracks().execute(artistId);
         }
 
-        ListView listView=(ListView) rootView.findViewById(R.id.tracks);
+        listView=(ListView) rootView.findViewById(R.id.tracks);
         listView.setAdapter(trackAdapter);
+        if (state!=null) {
+            listView.onRestoreInstanceState(state);
+        }
         return rootView;
     }
 
