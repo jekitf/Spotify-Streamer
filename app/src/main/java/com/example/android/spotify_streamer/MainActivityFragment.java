@@ -193,7 +193,7 @@ public class MainActivityFragment extends Fragment {
         }
         return rootView;
     }
-
+        static Toast toast;
         class SearchForArtist extends AsyncTask<String, Integer, ArrayList<ArtistAdapterItem>> {
 
 
@@ -220,7 +220,10 @@ public class MainActivityFragment extends Fragment {
             artistAdapter.addAll(artistAdapterItem);
 
             if (artistAdapterItem.size()==0){
-                Toast.makeText(getActivity(), "No results", Toast.LENGTH_SHORT).show();
+                if (toast!=null)
+                    toast.cancel();
+                toast=Toast.makeText(getActivity(), getResources().getString(R.string.no_results),Toast.LENGTH_SHORT);
+                toast.show();
             }
         }
 
