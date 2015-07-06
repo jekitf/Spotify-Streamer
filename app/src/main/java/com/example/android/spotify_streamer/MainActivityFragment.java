@@ -2,14 +2,10 @@ package com.example.android.spotify_streamer;
 
 import android.content.Context;
 import android.content.Intent;
-import android.content.res.Resources;
 import android.os.AsyncTask;
 import android.os.Parcelable;
-import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
-import android.util.Log;
-import android.util.TypedValue;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,28 +17,18 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
-import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.squareup.picasso.Picasso;
 
-import java.io.Console;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.List;
-import java.util.ListIterator;
 
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
 import kaaes.spotify.webapi.android.models.Artist;
-import kaaes.spotify.webapi.android.models.Artists;
 import kaaes.spotify.webapi.android.models.ArtistsPager;
 import kaaes.spotify.webapi.android.models.Image;
-import retrofit.Callback;
-import retrofit.RetrofitError;
-import retrofit.client.Response;
 
 
 /**
@@ -51,7 +37,7 @@ import retrofit.client.Response;
 public class MainActivityFragment extends Fragment {
 
     class ArtistAdapterItem {
-        private Artist _artist;
+        final private Artist _artist;
         public ArtistAdapterItem(Artist artist) {
             _artist=artist;
         }
@@ -59,7 +45,7 @@ public class MainActivityFragment extends Fragment {
             String imageUrl="";
             for (int i=0;i<_artist.images.size();i++){
                 Image image=_artist.images.get(i);
-                if (imageUrl=="" || (image.height>=pixels && image.width>pixels)) {
+                if (imageUrl.equals("") || (image.height>=pixels && image.width>pixels)) {
                     imageUrl=image.url;
                 }
             }
@@ -111,7 +97,7 @@ public class MainActivityFragment extends Fragment {
             int valueInPixels = (int) getResources().getDimension(R.dimen.spotify_small_image);
 
             String imageUrl=adapterArtistItem.getImage(valueInPixels);
-            if (imageUrl!="") {
+            if (!imageUrl.equals("")) {
                 Picasso.with(getContext()).load(imageUrl).into(holder.tvArtistImage);
             }
             return convertView;
@@ -120,10 +106,10 @@ public class MainActivityFragment extends Fragment {
 
 
     //to store/retrieve view data when going back
-    static Parcelable state;
+    private static Parcelable state;
 
     //used static so when hitting back, old data will be cached
-    static ArtistAdapter artistAdapter;
+    private static ArtistAdapter artistAdapter;
 
     public MainActivityFragment() {
     }
@@ -135,7 +121,7 @@ public class MainActivityFragment extends Fragment {
         state=listView.onSaveInstanceState();
     }
 
-    ListView listView;
+    private ListView listView;
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
         artistAdapter = new ArtistAdapter(getActivity(),artistAdapter);
@@ -193,8 +179,8 @@ public class MainActivityFragment extends Fragment {
         }
         return rootView;
     }
-        static Toast toast;
-        class SearchForArtist extends AsyncTask<String, Integer, ArrayList<ArtistAdapterItem>> {
+        private static Toast toast;
+        private class SearchForArtist extends AsyncTask<String, Integer, ArrayList<ArtistAdapterItem>> {
 
 
         @Override
@@ -206,7 +192,7 @@ public class MainActivityFragment extends Fragment {
             SpotifyService spotify = api.getService();
             ArtistsPager artistsPager = spotify.searchArtists(artistName);
 
-            ArrayList<ArtistAdapterItem> adapterArtistItems = new ArrayList<ArtistAdapterItem>();
+            ArrayList<ArtistAdapterItem> adapterArtistItems = new ArrayList<>();
             for (Artist artist : artistsPager.artists.items) {
                 adapterArtistItems.add(new ArtistAdapterItem(artist));
                 //Log.v("Artist found: ", artist.name);
