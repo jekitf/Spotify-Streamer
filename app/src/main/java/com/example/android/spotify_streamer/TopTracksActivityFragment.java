@@ -66,6 +66,10 @@ public class TopTracksActivityFragment extends Fragment {
 
     public class TrackAdapter extends ArrayAdapter<TrackAdapterItem>
     {
+        class ViewHolder {
+            TextView tvTrackName;
+            ImageView tvAlbumImage;
+        }
         public TrackAdapter(Context context) {
             super(context, 0, new ArrayList<TrackAdapterItem>());
 
@@ -81,17 +85,21 @@ public class TopTracksActivityFragment extends Fragment {
             TrackAdapterItem trackAdapterItem = getItem(position);
             if (convertView == null) {
                 convertView = LayoutInflater.from(getContext()).inflate(R.layout.individual_track, parent, false);
+                ViewHolder holder=new ViewHolder();
+                holder.tvTrackName=(TextView) convertView.findViewById(R.id.trackName);
+                holder.tvAlbumImage=(ImageView) convertView.findViewById(R.id.albumImage);
+                convertView.setTag(holder);
             }
-            TextView tvTrackName = (TextView) convertView.findViewById(R.id.trackName);
-            tvTrackName.setText(trackAdapterItem.getTrackNameAndAlbumName());
+
+            ViewHolder holder=(ViewHolder) convertView.getTag();
+            holder.tvTrackName.setText(trackAdapterItem.getTrackNameAndAlbumName());
 
             //get ImageView in pixels. No need to download bigger images
             int valueInPixels = (int) getResources().getDimension(R.dimen.spotify_small_image);
 
             String imageUrl=trackAdapterItem.getImage(valueInPixels);
             if (imageUrl!="") {
-                ImageView tvAlbumImage= (ImageView) convertView.findViewById(R.id.albumImage);
-                Picasso.with(getContext()).load(imageUrl).into(tvAlbumImage);
+                Picasso.with(getContext()).load(imageUrl).into(holder.tvAlbumImage);
             }
             return convertView;
         }

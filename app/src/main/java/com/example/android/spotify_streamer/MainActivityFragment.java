@@ -21,6 +21,7 @@ import android.widget.ArrayAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ListView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -75,6 +76,11 @@ public class MainActivityFragment extends Fragment {
 
     public class ArtistAdapter extends ArrayAdapter<ArtistAdapterItem>
     {
+        class ViewHolder {
+            TextView tvArtistName;
+            ImageView tvArtistImage;
+        }
+
         public ArtistAdapter(Context context,ArtistAdapter artistAdapter) {
             super(context, 0, new ArrayList<ArtistAdapterItem>());
 
@@ -90,17 +96,23 @@ public class MainActivityFragment extends Fragment {
             ArtistAdapterItem adapterArtistItem = getItem(position);
             if (convertView == null) {
                 convertView = LayoutInflater.from(getContext()).inflate(R.layout.individual_artist, parent, false);
+
+                ViewHolder holder=new ViewHolder();
+                holder.tvArtistName=(TextView) convertView.findViewById(R.id.artistName);
+                holder.tvArtistImage=(ImageView) convertView.findViewById(R.id.artistImage);
+                convertView.setTag(holder);
             }
-            TextView tvArtistName = (TextView) convertView.findViewById(R.id.artistName);
-            tvArtistName.setText(adapterArtistItem.getArtistName());
+
+            ViewHolder holder=(ViewHolder) convertView.getTag();
+
+            holder.tvArtistName.setText(adapterArtistItem.getArtistName());
 
             //get ImageView in pixels. No need to download bigger images
             int valueInPixels = (int) getResources().getDimension(R.dimen.spotify_small_image);
 
             String imageUrl=adapterArtistItem.getImage(valueInPixels);
             if (imageUrl!="") {
-                ImageView tvArtistImage= (ImageView) convertView.findViewById(R.id.artistImage);
-                Picasso.with(getContext()).load(imageUrl).into(tvArtistImage);
+                Picasso.with(getContext()).load(imageUrl).into(holder.tvArtistImage);
             }
             return convertView;
         }
