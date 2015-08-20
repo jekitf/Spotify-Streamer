@@ -6,16 +6,20 @@ import android.os.AsyncTask;
 import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
+import android.support.v4.app.FragmentTransaction;
 import android.support.v7.app.AppCompatActivity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.android.spotify_streamer.models.TrackAdapterItem;
+import com.example.android.spotify_streamer.models.TrackAdapterItems;
 import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
@@ -23,7 +27,6 @@ import java.util.HashMap;
 
 import kaaes.spotify.webapi.android.SpotifyApi;
 import kaaes.spotify.webapi.android.SpotifyService;
-import kaaes.spotify.webapi.android.models.Image;
 import kaaes.spotify.webapi.android.models.Track;
 import kaaes.spotify.webapi.android.models.Tracks;
 
@@ -33,29 +36,8 @@ import kaaes.spotify.webapi.android.models.Tracks;
  */
 public class TopTracksActivityFragment extends Fragment {
 
-    class TrackAdapterItem {
-        final private Track _track;
-        public TrackAdapterItem(Track track) {
-            _track=track;
-        }
-        public String getImage(int pixels) {
-            String imageUrl="";
-            for (int i=0;i<_track.album.images.size();i++){
-                Image image=_track.album.images.get(i);
-                if (imageUrl.equals("") || (image.height>=pixels && image.width>pixels)) {
-                    imageUrl=image.url;
-                }
-            }
-            return imageUrl;
-        }
-        public String getTrackName() {
-            return _track.name;
-        }
-
-        public String getTrackNameAndAlbumName() {
-            return _track.name+"\r\n"+_track.album.name;
-        }
-    }
+    static final String ARTIST_ID_URI = "ARTIST_ID_URI";
+    static final String ARTIST_NAME_URI = "ARTIST_NAME_URI";
 
     public class TrackAdapter extends ArrayAdapter<TrackAdapterItem>
     {
@@ -67,9 +49,9 @@ public class TopTracksActivityFragment extends Fragment {
             super(context, 0, new ArrayList<TrackAdapterItem>());
 
             // populate data from last trackAdapter
-            if (trackAdapter!=null) {
-                for (int i = 0; i < trackAdapter.getCount(); i++)
-                    add(trackAdapter.getItem(i));
+            if (sTrackAdapter!=null) {
+                for (int i = 0; i < sTrackAdapter.getCount(); i++)
+                    add(sTrackAdapter.getItem(i));
             }
         }
 
@@ -99,10 +81,10 @@ public class TopTracksActivityFragment extends Fragment {
     }
 
     //to store/retrieve view data when going back
-    private static Parcelable state;
+    private static Parcelable sParcelableState;
 
     //used static so when hitting back, old data will be cached
-    private static TrackAdapter trackAdapter;
+    private static TrackAdapter sTrackAdapter;
 
     public TopTracksActivityFragment() {
     }
@@ -111,18 +93,24 @@ public class TopTracksActivityFragment extends Fragment {
     public void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
 
-        state=listView.onSaveInstanceState();
+        sParcelableState =listView.onSaveInstanceState();
     }
 
     private ListView listView;
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        trackAdapter=new TrackAdapter(getActivity());
+        sTrackAdapter=new TrackAdapter(getActivity());
 
-        Intent intent=getActivity().getIntent();
         View rootView =  inflater.inflate(R.layout.fragment_top_tracks, container, false);
-        if (intent!=null && intent.hasExtra(Intent.EXTRA_REFERRER)){
+        Intent intent=getActivity().getIntent();
+        Bundle args = getArguments();
+        if (args != null) {
+            String artistName=args.getString(ARTIST_NAME_URI);
+            String artistId=args.getString(ARTIST_ID_URI);
+            new SearchTopTracks().execute(artistId);
+        }
+        else if (intent!=null && intent.hasExtra(Intent.EXTRA_REFERRER)){
             String artistName=intent.getStringExtra(Intent.EXTRA_TEXT);
             String artistId=intent.getStringExtra(Intent.EXTRA_REFERRER);
 
@@ -136,12 +124,46 @@ public class TopTracksActivityFragment extends Fragment {
         }
 
         listView=(ListView) rootView.findViewById(R.id.tracks);
-        listView.setAdapter(trackAdapter);
-        if (state!=null) {
-            listView.onRestoreInstanceState(state);
+        listView.setAdapter(sTrackAdapter);
+        if (sParcelableState !=null) {
+            listView.onRestoreInstanceState(sParcelableState);
         }
+
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+
+                if (!PlayerUIActivityFragment.IsInstanceRunning())
+                {
+                    if (true)//MainActivity.IsUseTwoPane())
+                    {
+                        // Create the fragment and show it as a dialog.
+                        PlayerUIActivityFragment playerUIDialog = new PlayerUIActivityFragment();
+                        Bundle args = new Bundle();
+                        args.putParcelable("TrackAdapterItems", new TrackAdapterItems(position, sTrackAdapter));
+                        playerUIDialog.setArguments(args);
+                        playerUIDialog.show(getFragmentManager(), "dialog");
+                    } else
+                    {
+                        FragmentTransaction ft = getFragmentManager().beginTransaction();
+                        PlayerUIActivityFragment playerUIDialog = new PlayerUIActivityFragment();
+                        Bundle args = new Bundle();
+                        args.putParcelable("TrackAdapterItems", new TrackAdapterItems(position, sTrackAdapter));
+                        playerUIDialog.setArguments(args);
+                        ft.add(R.id.individual_track, playerUIDialog);
+                        ft.addToBackStack(null);
+                        ft.commit();
+                        /*Intent showPlayerUI = new Intent(getActivity(), PlayerUIActivity.class);
+                        showPlayerUI.putExtra("TrackAdapterItems",new TrackAdapterItems(position,sTrackAdapter));
+                        startActivity(showPlayerUI);*/
+                    }
+                }
+            }
+        });
         return rootView;
     }
+
+
 
     private class SearchTopTracks extends AsyncTask<String,Integer,ArrayList<TrackAdapterItem>>{
         @Override
@@ -166,8 +188,8 @@ public class TopTracksActivityFragment extends Fragment {
 
         @Override
         protected void onPostExecute(ArrayList<TrackAdapterItem> trackAdapterItems) {
-            trackAdapter.clear();
-            trackAdapter.addAll(trackAdapterItems);
+            sTrackAdapter.clear();
+            sTrackAdapter.addAll(trackAdapterItems);
 
             if (trackAdapterItems.size()==0){
                 Toast.makeText(getActivity(), "No results", Toast.LENGTH_SHORT).show();

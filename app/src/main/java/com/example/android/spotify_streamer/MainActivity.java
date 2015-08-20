@@ -8,10 +8,42 @@ import android.view.MenuItem;
 
 public class MainActivity extends AppCompatActivity {
 
+    static private boolean sUseTwoPane=false;
+
+    static public boolean IsUseTwoPane()
+    {
+        return sUseTwoPane;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        if (findViewById(R.id.topTracks_container) != null) {
+            // The detail container view will be present only in the large-screen layouts
+            // (res/layout-sw600dp). If this view is present, then the activity should be
+            // in two-pane mode.
+            sUseTwoPane = true;
+            // In two-pane mode, show the detail view in this activity by
+            // adding or replacing the detail fragment using a
+            // fragment transaction.
+            if (savedInstanceState == null) {
+                getSupportFragmentManager().beginTransaction()
+                        .replace(R.id.topTracks_container, new TopTracksActivityFragment())
+                        .commit();
+
+                MainActivityFragment mainActivityFragment =  ((MainActivityFragment)getSupportFragmentManager()
+                        .findFragmentById(R.id.fragment_artist));
+            }
+        } else {
+            getSupportActionBar().setElevation(0f);
+
+            MainActivityFragment mainActivityFragment =  ((MainActivityFragment)getSupportFragmentManager()
+                    .findFragmentById(R.id.fragment));
+        }
+
+
     }
 
 

@@ -36,6 +36,8 @@ import kaaes.spotify.webapi.android.models.Image;
  */
 public class MainActivityFragment extends Fragment {
 
+    private String mArtistId;
+
     class ArtistAdapterItem {
         final private Artist _artist;
         public ArtistAdapterItem(Artist artist) {
@@ -134,20 +136,33 @@ public class MainActivityFragment extends Fragment {
         }
 
 
-/*      //Just for developing
+      //Just for developing
         Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
         showTopTracks.putExtra(Intent.EXTRA_REFERRER, "4gzpq5DPGxSnKTe4SA8HAU");
         showTopTracks.putExtra(Intent.EXTRA_TEXT, "Coldplay");
-        startActivity(showTopTracks);*/
+        startActivity(showTopTracks);
 
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
-                showTopTracks.putExtra(Intent.EXTRA_REFERRER, artistAdapter.getItem(position).getArtistId());
-                showTopTracks.putExtra(Intent.EXTRA_TEXT, artistAdapter.getItem(position).getArtistName());
-                startActivity(showTopTracks);
+                if (MainActivity.IsUseTwoPane()) {
+                    Bundle args = new Bundle();
+                    args.putString(TopTracksActivityFragment.ARTIST_ID_URI, artistAdapter.getItem(position).getArtistId());
+                    args.putString(TopTracksActivityFragment.ARTIST_NAME_URI, artistAdapter.getItem(position).getArtistName());
+
+                    TopTracksActivityFragment topTracksActivityFragment = new TopTracksActivityFragment();
+                    topTracksActivityFragment.setArguments(args);
+
+                    getActivity().getSupportFragmentManager().beginTransaction()
+                            .replace(R.id.topTracks_container, topTracksActivityFragment)
+                            .commit();
+                } else {
+                    Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
+                    showTopTracks.putExtra(Intent.EXTRA_REFERRER, artistAdapter.getItem(position).getArtistId());
+                    showTopTracks.putExtra(Intent.EXTRA_TEXT, artistAdapter.getItem(position).getArtistName());
+                    startActivity(showTopTracks);
+                }
             }
         });
 
@@ -156,7 +171,7 @@ public class MainActivityFragment extends Fragment {
                 new EditText.OnEditorActionListener() {
                     @Override
                     public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                        if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                        if (actionId == EditorInfo.IME_ACTION_SEARCH || event.getAction() == KeyEvent.ACTION_DOWN) {
                             // Hide keyboard
                             v.clearFocus();
 
