@@ -10,7 +10,7 @@ public class MainActivity extends AppCompatActivity {
 
     static private boolean sUseTwoPane=false;
 
-    static public boolean IsUseTwoPane()
+    static public boolean UseTwoPane()
     {
         return sUseTwoPane;
     }

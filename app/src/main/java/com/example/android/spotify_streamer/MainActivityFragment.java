@@ -6,6 +6,7 @@ import android.os.AsyncTask;
 import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
+import android.support.v4.app.FragmentManager;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -137,16 +138,16 @@ public class MainActivityFragment extends Fragment {
 
 
       //Just for developing
-        Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
+        /*Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
         showTopTracks.putExtra(Intent.EXTRA_REFERRER, "4gzpq5DPGxSnKTe4SA8HAU");
         showTopTracks.putExtra(Intent.EXTRA_TEXT, "Coldplay");
-        startActivity(showTopTracks);
+        startActivity(showTopTracks);*/
 
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                if (MainActivity.IsUseTwoPane()) {
+                if (MainActivity.UseTwoPane()) {
                     Bundle args = new Bundle();
                     args.putString(TopTracksActivityFragment.ARTIST_ID_URI, artistAdapter.getItem(position).getArtistId());
                     args.putString(TopTracksActivityFragment.ARTIST_NAME_URI, artistAdapter.getItem(position).getArtistName());
@@ -158,6 +159,7 @@ public class MainActivityFragment extends Fragment {
                             .replace(R.id.topTracks_container, topTracksActivityFragment)
                             .commit();
                 } else {
+                    TopTracksActivityFragment.ClearAllTracks();
                     Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
                     showTopTracks.putExtra(Intent.EXTRA_REFERRER, artistAdapter.getItem(position).getArtistId());
                     showTopTracks.putExtra(Intent.EXTRA_TEXT, artistAdapter.getItem(position).getArtistName());
@@ -177,6 +179,13 @@ public class MainActivityFragment extends Fragment {
 
                             // Remove previous results
                             artistAdapter.clear();
+
+                            //also clear top tracks
+                            FragmentManager fragmentManager=getFragmentManager();
+                            TopTracksActivityFragment topTracksActivityFragment=(TopTracksActivityFragment) fragmentManager.findFragmentById(R.id.topTracks_container);
+                            if (topTracksActivityFragment!=null) {
+                                topTracksActivityFragment.ClearAllTracks();
+                            }
 
                             // Search for artist async
                             String searchArtistName = v.getText().toString();

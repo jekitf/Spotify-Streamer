@@ -1,8 +1,6 @@
 package com.example.android.spotify_streamer;
 
 import android.content.Intent;
-import android.graphics.Color;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Handler;
 import android.support.v4.app.DialogFragment;
 import android.os.Bundle;

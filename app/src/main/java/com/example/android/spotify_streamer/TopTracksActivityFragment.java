@@ -135,7 +135,7 @@ public class TopTracksActivityFragment extends Fragment {
 
                 if (!PlayerUIActivityFragment.IsInstanceRunning())
                 {
-                    if (true)//MainActivity.IsUseTwoPane())
+                    if (MainActivity.UseTwoPane())
                     {
                         // Create the fragment and show it as a dialog.
                         PlayerUIActivityFragment playerUIDialog = new PlayerUIActivityFragment();
@@ -150,12 +150,8 @@ public class TopTracksActivityFragment extends Fragment {
                         Bundle args = new Bundle();
                         args.putParcelable("TrackAdapterItems", new TrackAdapterItems(position, sTrackAdapter));
                         playerUIDialog.setArguments(args);
-                        ft.add(R.id.individual_track, playerUIDialog);
-                        ft.addToBackStack(null);
-                        ft.commit();
-                        /*Intent showPlayerUI = new Intent(getActivity(), PlayerUIActivity.class);
-                        showPlayerUI.putExtra("TrackAdapterItems",new TrackAdapterItems(position,sTrackAdapter));
-                        startActivity(showPlayerUI);*/
+                        ft.setTransition(FragmentTransaction.TRANSIT_FRAGMENT_OPEN);
+                        ft.add(android.R.id.content, playerUIDialog).addToBackStack(null).commit();
                     }
                 }
             }
@@ -197,4 +193,9 @@ public class TopTracksActivityFragment extends Fragment {
         }
     }
 
+    static void ClearAllTracks() {
+        if (sTrackAdapter!=null) {
+            sTrackAdapter.clear();
+        }
+    }
 }
