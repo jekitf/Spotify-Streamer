@@ -7,6 +7,7 @@ import android.os.Parcelable;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.support.v4.app.FragmentManager;
+import android.support.v7.widget.SearchView;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -30,6 +31,7 @@ import kaaes.spotify.webapi.android.SpotifyService;
 import kaaes.spotify.webapi.android.models.Artist;
 import kaaes.spotify.webapi.android.models.ArtistsPager;
 import kaaes.spotify.webapi.android.models.Image;
+import retrofit.RetrofitError;
 
 
 /**
@@ -137,11 +139,11 @@ public class MainActivityFragment extends Fragment {
         }
 
 
-      //Just for developing
-        /*Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
-        showTopTracks.putExtra(Intent.EXTRA_REFERRER, "4gzpq5DPGxSnKTe4SA8HAU");
-        showTopTracks.putExtra(Intent.EXTRA_TEXT, "Coldplay");
-        startActivity(showTopTracks);*/
+        //Just for developing
+//        Intent showTopTracks = new Intent(getActivity(), TopTracksActivity.class);
+//        showTopTracks.putExtra(Intent.EXTRA_REFERRER, "4gzpq5DPGxSnKTe4SA8HAU");
+//        showTopTracks.putExtra(Intent.EXTRA_TEXT, "Coldplay");
+//        startActivity(showTopTracks);
 
 
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
@@ -168,33 +170,28 @@ public class MainActivityFragment extends Fragment {
             }
         });
 
-        EditText editArtist=((EditText) rootView.findViewById(R.id.editArtist));
-        editArtist.setOnEditorActionListener(
-                new EditText.OnEditorActionListener() {
+        SearchView editArtist=((SearchView) rootView.findViewById(R.id.editArtist));
+        editArtist.setOnQueryTextListener(
+                new SearchView.OnQueryTextListener() {
                     @Override
-                    public boolean onEditorAction(TextView v, int actionId, KeyEvent event) {
-                        if (actionId == EditorInfo.IME_ACTION_SEARCH || event.getAction() == KeyEvent.ACTION_DOWN) {
-                            // Hide keyboard
-                            v.clearFocus();
-
-                            // Remove previous results
-                            artistAdapter.clear();
-
-                            //also clear top tracks
-                            FragmentManager fragmentManager=getFragmentManager();
-                            TopTracksActivityFragment topTracksActivityFragment=(TopTracksActivityFragment) fragmentManager.findFragmentById(R.id.topTracks_container);
-                            if (topTracksActivityFragment!=null) {
-                                topTracksActivityFragment.ClearAllTracks();
-                            }
-
-                            // Search for artist async
-                            String searchArtistName = v.getText().toString();
-                            new SearchForArtist().execute(searchArtistName);
+                    public boolean onQueryTextSubmit(String searchArtistName) {
+                        //also clear top tracks
+                        FragmentManager fragmentManager = getFragmentManager();
+                        TopTracksActivityFragment topTracksActivityFragment = (TopTracksActivityFragment) fragmentManager.findFragmentById(R.id.topTracks_container);
+                        if (topTracksActivityFragment != null) {
+                            topTracksActivityFragment.ClearAllTracks();
                         }
+
+                        // Search for artist async
+                        new SearchForArtist().execute(searchArtistName);
+                        return true;
+                    }
+
+                    @Override
+                    public boolean onQueryTextChange(String newText) {
                         return false;
                     }
                 });
-
 
         if (artistAdapter.getCount()>0) {
             getActivity().getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
@@ -206,36 +203,51 @@ public class MainActivityFragment extends Fragment {
         private static Toast toast;
         private class SearchForArtist extends AsyncTask<String, Integer, ArrayList<ArtistAdapterItem>> {
 
+            private Exception exception=null;
 
-        @Override
-        protected ArrayList<ArtistAdapterItem> doInBackground(String... params) {
+            @Override
+            protected ArrayList<ArtistAdapterItem> doInBackground(String... params) {
 
-            final String artistName = params[0];
+                final String artistName = params[0];
 
-            SpotifyApi api = new SpotifyApi();
-            SpotifyService spotify = api.getService();
-            ArtistsPager artistsPager = spotify.searchArtists(artistName);
-
-            ArrayList<ArtistAdapterItem> adapterArtistItems = new ArrayList<>();
-            for (Artist artist : artistsPager.artists.items) {
-                adapterArtistItems.add(new ArtistAdapterItem(artist));
-                //Log.v("Artist found: ", artist.name);
+                try {
+                    SpotifyApi api = new SpotifyApi();
+                    SpotifyService spotify = api.getService();
+                    ArtistsPager artistsPager = spotify.searchArtists(artistName);
+                    ArrayList<ArtistAdapterItem> adapterArtistItems = new ArrayList<>();
+                    for (Artist artist : artistsPager.artists.items) {
+                        adapterArtistItems.add(new ArtistAdapterItem(artist));
+                        //Log.v("Artist found: ", artist.name);
+                    }
+                    return adapterArtistItems;
+                } catch(Exception e) {
+                    exception=e;
+                    return null;
+                }
             }
-            return adapterArtistItems;
-        }
 
-        @Override
-        protected void onPostExecute(ArrayList<ArtistAdapterItem> artistAdapterItem) {
-            artistAdapter.clear();
-            artistAdapter.addAll(artistAdapterItem);
+            @Override
+            protected void onPostExecute(ArrayList<ArtistAdapterItem> artistAdapterItem) {
+                if (artistAdapterItem==null) {
+                        String errorMsg="Error";
+                        if (exception!=null)
+                            errorMsg+=": "+exception.getMessage();
+                        if (toast!=null)
+                            toast.cancel();
+                        toast=Toast.makeText(getActivity(), errorMsg,Toast.LENGTH_SHORT);
+                        toast.show();
+                } else {
+                    artistAdapter.clear();
+                    artistAdapter.addAll(artistAdapterItem);
 
-            if (artistAdapterItem.size()==0){
-                if (toast!=null)
-                    toast.cancel();
-                toast=Toast.makeText(getActivity(), getResources().getString(R.string.no_results),Toast.LENGTH_SHORT);
-                toast.show();
+                    if (artistAdapterItem.size() == 0) {
+                        if (toast != null)
+                            toast.cancel();
+                        toast = Toast.makeText(getActivity(), getResources().getString(R.string.no_results), Toast.LENGTH_SHORT);
+                        toast.show();
+                    }
+                }
             }
-        }
 
     }
 

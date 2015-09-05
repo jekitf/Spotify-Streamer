@@ -1,10 +1,18 @@
 package com.example.android.spotify_streamer;
 
+import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.ServiceConnection;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
+import android.os.Bundle;
+import android.os.IBinder;
+import android.os.Parcelable;
 import android.os.PowerManager;
 import android.widget.ImageView;
 import android.widget.SeekBar;
@@ -21,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Created by PC on 03.08.2015.
  */
-public class PlayerUIActivityFragmentViewHolder {
+public class PlayerUIActivityFragmentViewHolder extends BroadcastReceiver {
     TextView tvArtistName;
     TextView tvAlbumName;
     TextView tvTrackName;
@@ -31,14 +39,56 @@ public class PlayerUIActivityFragmentViewHolder {
     ImageView ivPlayPause;
     SeekBar sbSlider;
 
-    final private WifiManager.WifiLock mWifiLock;
     final private Context mContext;
     final private TrackAdapterItems mTrackAdapterItems;
-    public PlayerUIActivityFragmentViewHolder(Context context, TrackAdapterItems trackAdapterItems) {
+    private PlayerService sPlayerService;
+    private ServiceConnection mPlayerServiceConnection = new ServiceConnection() {
+        public void onServiceConnected(ComponentName className,IBinder binder) {
+            PlayerService.MyBinder b = (PlayerService.MyBinder) binder;
+            sPlayerService = b.getService();
+            StartPlaying(mNewTrack);
+        }
+
+        public void onServiceDisconnected(ComponentName className) {
+            sPlayerService = null;
+        }
+    };
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (intent.getAction()==PlayerService.NOTIFICATION) {
+            Bundle bundle = intent.getExtras();
+            if (bundle != null) {
+                int duration = bundle.getInt(PlayerService.DURATION,-1);
+                if (duration!=-1) {
+                    tvDuration.setText(ConvertMsToString(duration));
+                    sbSlider.setMax(duration);
+                    Play();
+                } else {
+                    String error = bundle.getString(PlayerService.ERROR, "");
+                    String errorMsg="Error";
+                    if (error!="")
+                        errorMsg+=": "+error;
+                    if (toast!=null)
+                        toast.cancel();
+                    toast=Toast.makeText(context, errorMsg,Toast.LENGTH_SHORT);
+                    toast.show();
+                }
+            }
+        }
+    }
+
+    final private boolean mNewTrack;
+    public PlayerUIActivityFragmentViewHolder(Context context, TrackAdapterItems trackAdapterItems,boolean newTrack) {
         mContext =context;
         mTrackAdapterItems =trackAdapterItems;
-        mWifiLock = ((WifiManager) context.getSystemService(Context.WIFI_SERVICE))
-                .createWifiLock(WifiManager.WIFI_MODE_FULL, "lock_PlayerUIActivityFragmentViewHolder");
+        mNewTrack=newTrack;
+
+        //make sure PlayerService runs
+        Intent intent= new Intent(context, PlayerService.class);
+        mContext.startService(intent);
+        context.bindService(intent, mPlayerServiceConnection, Context.BIND_AUTO_CREATE);
+        context.registerReceiver(this, new IntentFilter(PlayerService.NOTIFICATION));
     }
 
     void Update()
@@ -47,72 +97,48 @@ public class PlayerUIActivityFragmentViewHolder {
         tvArtistName.setText(item.getArtistName());
         tvAlbumName.setText(item.getAlbumName());
         tvTrackName.setText(item.getTrackName());
+
         if (!item.getImage(0).equals("")) {
             Picasso.with(mContext).load(item.getImage(0)).into(ivAlbumImage);
         }
     }
 
-    private boolean mMediaPlayerIsPlaying =false;
-    private boolean mMediaPlayerInit =false;
-    private MediaPlayer mMediaPlayer;
-    public void StartPlaying() {
+    public void StartPlaying(boolean newTrack) {
         Update();
-        if (mMediaPlayerInit && mMediaPlayer !=null)
-            mMediaPlayer.release();
-        mMediaPlayerIsPlaying =true;
-        mMediaPlayerInit =false;
-        tvCurrentPosition.setText("0:00");
-        tvDuration.setText("");
-        mMediaPlayer =new MediaPlayer();
-        mMediaPlayer.setWakeMode(mContext, PowerManager.PARTIAL_WAKE_LOCK);
-        mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
-        Play();
-        try {
-            mMediaPlayer.setDataSource(mTrackAdapterItems.getTrack().getPreviewUrl());
-        } catch (IOException e) {
-            e.printStackTrace();
+        if (newTrack) {
+            tvCurrentPosition.setText("0:00");
+            tvDuration.setText("");
+            if (sPlayerService != null)
+                sPlayerService.StartPlaying(mTrackAdapterItems.getTrack().getPreviewUrl());
+        } else {
+            tvDuration.setText(ConvertMsToString(sPlayerService.getDuration()));
+            sbSlider.setMax(sPlayerService.getDuration());
+            if (IsPlaying())
+                ivPlayPause.setImageResource(android.R.drawable.ic_media_pause);
+            else
+                ivPlayPause.setImageResource(android.R.drawable.ic_media_play);
+            sbSlider.setProgress(sPlayerService.getCurrentPosition());
         }
-        new PrepareMediaPlayer().execute(mMediaPlayer);
     }
 
     private Toast toast;
 
-    public void onDestroy() {
-        if (mWifiLock.isHeld())
-            mWifiLock.release();
-        mMediaPlayer.release();
-        mMediaPlayer =null;
-    }
-
     public void Pause() {
-        mMediaPlayerIsPlaying =false;
         ivPlayPause.setImageResource(android.R.drawable.ic_media_play);
-        if (mMediaPlayerInit && mMediaPlayer !=null) {
-            mMediaPlayer.pause();
-            mWifiLock.release();
-        }
-
+        if (sPlayerService!=null)
+            sPlayerService.Pause();
     }
 
     public void Play() {
-        mMediaPlayerIsPlaying =true;
         ivPlayPause.setImageResource(android.R.drawable.ic_media_pause);
-        if (mMediaPlayerInit && mMediaPlayer !=null) {
-            mMediaPlayer.start();
-            mWifiLock.acquire();
-        }
-        mMediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
-            @Override
-            public void onCompletion(MediaPlayer mp) {
-                Pause();
-                if (mMediaPlayerInit && mMediaPlayer != null)
-                    mMediaPlayer.seekTo(0);
-            }
-        });
+        if (sPlayerService!=null)
+            sPlayerService.Play();
     }
 
     public boolean IsPlaying() {
-        return mMediaPlayerIsPlaying;
+        if (sPlayerService!=null)
+            return sPlayerService.IsPlaying();
+        return false;
     }
 
     static String ConvertMsToString(Integer milliseconds)
@@ -123,55 +149,22 @@ public class PlayerUIActivityFragmentViewHolder {
     }
 
     public void SeekPlay(int miliseconds) {
-        if (mMediaPlayerInit && mMediaPlayer !=null)
-            mMediaPlayer.seekTo(miliseconds);
+        if (sPlayerService!=null)
+            sPlayerService.SeekPlay(miliseconds);
     }
 
     public void UpdateSlider() {
-        if (IsPlaying()) {
-            sbSlider.setProgress(mMediaPlayer.getCurrentPosition());
+        if (sPlayerService!=null && IsPlaying()) {
+            sbSlider.setProgress(sPlayerService.getCurrentPosition());
         }
     }
 
-    private class PrepareMediaPlayer extends AsyncTask<MediaPlayer,Void,MediaPlayer> {
-        @Override
-        protected MediaPlayer doInBackground(MediaPlayer... params) {
-            MediaPlayer mediaPlayer=params[0];
-            try {
-                mediaPlayer.prepare();
-            } catch (IOException e) {
-                e.printStackTrace();
-                cancel(false);
-            }
-            return mediaPlayer;
-        }
-
-        @Override
-        protected void onPostExecute(MediaPlayer mediaPlayer) {
-            super.onPostExecute(mediaPlayer);
-            if (mMediaPlayer !=null && mMediaPlayer.equals(mediaPlayer)) {
-                tvDuration.setText(ConvertMsToString(mMediaPlayer.getDuration()));
-                sbSlider.setMax(mMediaPlayer.getDuration());
-                mMediaPlayerInit =true;
-                mMediaPlayer.start();
-                mWifiLock.acquire();
-            } else if (mMediaPlayer !=null ) {
-                mediaPlayer.release();
-            }
-        }
-
-        @Override
-        protected void onCancelled(MediaPlayer mediaPlayer) {
-            super.onCancelled(mediaPlayer);
-            mediaPlayer.release();
-            if (mMediaPlayer !=null && mMediaPlayer.equals(mediaPlayer)) {
-                mMediaPlayer =null;
-                if (toast != null)
-                    toast.cancel();
-                toast = Toast.makeText(mContext, "Something went wrong", Toast.LENGTH_SHORT);
-                toast.show();
-            }
+    public void onDestroy(boolean stopPayerService) {
+        mContext.unbindService(mPlayerServiceConnection);
+        mContext.unregisterReceiver(this);
+        if (stopPayerService) {
+            Intent intent= new Intent(mContext, PlayerService.class);
+            mContext.stopService(intent);
         }
     }
-
 }

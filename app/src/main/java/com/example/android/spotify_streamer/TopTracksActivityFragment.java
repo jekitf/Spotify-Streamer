@@ -2,6 +2,7 @@ package com.example.android.spotify_streamer;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.Configuration;
 import android.os.AsyncTask;
 import android.os.Parcelable;
 import android.support.v4.app.Fragment;
@@ -96,31 +97,34 @@ public class TopTracksActivityFragment extends Fragment {
         sParcelableState =listView.onSaveInstanceState();
     }
 
+    private Toast toast;
     private ListView listView;
+
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         sTrackAdapter=new TrackAdapter(getActivity());
 
         View rootView =  inflater.inflate(R.layout.fragment_top_tracks, container, false);
-        Intent intent=getActivity().getIntent();
-        Bundle args = getArguments();
-        if (args != null) {
-            String artistName=args.getString(ARTIST_NAME_URI);
-            String artistId=args.getString(ARTIST_ID_URI);
-            new SearchTopTracks().execute(artistId);
-        }
-        else if (intent!=null && intent.hasExtra(Intent.EXTRA_REFERRER)){
-            String artistName=intent.getStringExtra(Intent.EXTRA_TEXT);
-            String artistId=intent.getStringExtra(Intent.EXTRA_REFERRER);
+        if (savedInstanceState==null) {
+            Intent intent = getActivity().getIntent();
+            Bundle args = getArguments();
+            if (args != null) {
+                String artistName = args.getString(ARTIST_NAME_URI);
+                String artistId = args.getString(ARTIST_ID_URI);
+                new SearchTopTracks().execute(artistId);
+            } else if (intent != null && intent.hasExtra(Intent.EXTRA_REFERRER)) {
+                String artistName = intent.getStringExtra(Intent.EXTRA_TEXT);
+                String artistId = intent.getStringExtra(Intent.EXTRA_REFERRER);
 
-            AppCompatActivity activity=(AppCompatActivity) getActivity();
-            android.support.v7.app.ActionBar mActionBar = activity.getSupportActionBar();
-            if (mActionBar!=null) {
-                mActionBar.setTitle("Top 10 Tracks");
-                mActionBar.setSubtitle(artistName);
+                AppCompatActivity activity = (AppCompatActivity) getActivity();
+                android.support.v7.app.ActionBar mActionBar = activity.getSupportActionBar();
+                if (mActionBar != null) {
+                    mActionBar.setTitle("Top 10 Tracks");
+                    mActionBar.setSubtitle(artistName);
+                }
+                new SearchTopTracks().execute(artistId);
             }
-            new SearchTopTracks().execute(artistId);
         }
 
         listView=(ListView) rootView.findViewById(R.id.tracks);
@@ -156,39 +160,61 @@ public class TopTracksActivityFragment extends Fragment {
                 }
             }
         });
+
         return rootView;
     }
 
 
 
     private class SearchTopTracks extends AsyncTask<String,Integer,ArrayList<TrackAdapterItem>>{
+
+        private Exception exception=null;
         @Override
         protected ArrayList<TrackAdapterItem> doInBackground(String... params) {
             final String artistId = params[0];
 
-            SpotifyApi api = new SpotifyApi();
-            SpotifyService spotify = api.getService();
-
-            HashMap<String, Object> query=new HashMap<>();
-            query.put("country","NO");
-
-            Tracks tracks = spotify.getArtistTopTrack(artistId,query);
-
             ArrayList<TrackAdapterItem> trackAdapterItems = new ArrayList<>();
-            for (Track track : tracks.tracks) {
-                trackAdapterItems.add(new TrackAdapterItem(track));
-                //Log.v("Track found: ", track.name);
+            try{
+                SpotifyApi api = new SpotifyApi();
+                SpotifyService spotify = api.getService();
+
+                HashMap<String, Object> query=new HashMap<>();
+                query.put("country","NO");
+
+                Tracks tracks = spotify.getArtistTopTrack(artistId,query);
+
+
+                for (Track track : tracks.tracks) {
+                    trackAdapterItems.add(new TrackAdapterItem(track));
+                    //Log.v("Track found: ", track.name);
+                }
+            } catch (Exception e)
+            {
+                exception=e;
             }
             return trackAdapterItems;
         }
 
         @Override
         protected void onPostExecute(ArrayList<TrackAdapterItem> trackAdapterItems) {
-            sTrackAdapter.clear();
-            sTrackAdapter.addAll(trackAdapterItems);
 
-            if (trackAdapterItems.size()==0){
-                Toast.makeText(getActivity(), "No results", Toast.LENGTH_SHORT).show();
+            if (exception!=null){
+                String errorMsg="Error";
+                errorMsg+=": "+exception.getMessage();
+                if (toast!=null)
+                    toast.cancel();
+                toast=Toast.makeText(getActivity(), errorMsg,Toast.LENGTH_SHORT);
+                toast.show();
+            } else {
+                sTrackAdapter.clear();
+                sTrackAdapter.addAll(trackAdapterItems);
+
+                if (trackAdapterItems.size()==0){
+                    if (toast!=null)
+                        toast.cancel();
+                    toast=Toast.makeText(getActivity(), "No results", Toast.LENGTH_SHORT);
+                    toast.show();
+                }
             }
         }
     }
